@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -23,7 +24,15 @@ func main() {
 	printFlag(user)
 
 	loadHistory()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
 
+	go func() {
+		for range signalChan {
+			fmt.Println()
+			fmt.Print(getPrompt())
+		}
+	}()
 	tty, err := tty.Open()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error opening TTY:", err)
@@ -185,7 +194,16 @@ func execInput(input string) error {
 		}
 		return nil
 	case "exit":
-		os.Exit(0)
+		fmt.Println("Closing shell...")
+
+		// 🛑 Detect OS and close terminal
+		if isWindows() {
+			exec.Command("cmd", "/c", "exit").Run()
+		} else {
+			exec.Command("bash", "-c", "exit").Run()
+		}
+		os.Exit(0) // Ensure Go process exits
+
 	case "pwd":
 		dir, err := os.Getwd()
 		if err != nil {
@@ -200,6 +218,9 @@ func execInput(input string) error {
 		} else {
 			args = []string{"ls", "-la"} // Unix-based OS
 		}
+	case "clear", "cls": // Handle clearing the screen
+		fmt.Print("\033[H\033[2J") // ANSI escape sequence to clear screen
+		return nil
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
