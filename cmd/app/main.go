@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/mattn/go-tty"
@@ -90,6 +89,7 @@ func readInputWithHistory(tty *tty.TTY) (string, error) {
 	prompt := getPrompt()
 	fmt.Print(prompt)
 	cursorPos := 0
+
 	for {
 		r, err := tty.ReadRune()
 		if err != nil {
@@ -97,69 +97,75 @@ func readInputWithHistory(tty *tty.TTY) (string, error) {
 		}
 
 		switch r {
-		case 13: // enter key
+		case 13: // Enter key
 			fmt.Println()
 			return string(input), nil
-		case 127, 8: //backspace key
-			if cursorPos > 0 && len(input) > 0 { // Prevent deleting the prompt and check input length
-				input = append(input[:cursorPos-1], input[cursorPos:]...) // Remove character at cursor position
+		case 127, 8: // Backspace key
+			if cursorPos > 0 && len(input) > 0 {
+				input = append(input[:cursorPos-1], input[cursorPos:]...)
 				cursorPos--
-				// Redraw the entire line to handle backspace properly
-				clearLine()
-				fmt.Print(prompt + string(input))
-				// Move cursor back to the correct position
-				if cursorPos < len(input) {
-					fmt.Print("\033[" + fmt.Sprint(len(input)-cursorPos) + "D")
-				}
+				redrawLine(prompt, input, cursorPos)
 			}
 		case 9: // Tab key (Auto-completion)
 			suggestion := autocomplete(string(input))
 			if suggestion != "" && suggestion != string(input) {
 				input = []rune(suggestion)
 				cursorPos = len(input)
-				clearLine()
-				fmt.Print(prompt + string(input))
+				redrawLine(prompt, input, cursorPos)
 			}
-		case 27: // Arrow keys (Up/Down for history)
+		case 27: // Escape sequence (Arrow keys)
 			r2, _ := tty.ReadRune()
-			if r2 == 91 {
+			if r2 == 91 { // '[' character
 				r3, _ := tty.ReadRune()
-				if r3 == 65 { // up arrow
+				switch r3 {
+				case 65: // Up arrow (History back)
 					if historyIndex > 0 {
 						historyIndex--
-						clearLine()
 						input = []rune(commandHistory[historyIndex])
 						cursorPos = len(input)
-						fmt.Print(prompt + string(input))
+						redrawLine(prompt, input, cursorPos)
 					}
-				} else if r3 == 66 { // Down arrow
+				case 66: // Down arrow (History forward)
 					if historyIndex < len(commandHistory)-1 {
 						historyIndex++
-						clearLine()
 						input = []rune(commandHistory[historyIndex])
-						cursorPos = len(input)
-						fmt.Print(prompt + string(input))
 					} else {
 						historyIndex = len(commandHistory)
-						clearLine()
 						input = nil
-						cursorPos = 0
-						fmt.Print(prompt)
+					}
+					cursorPos = len(input)
+					redrawLine(prompt, input, cursorPos)
+				case 67: // Right arrow (Move cursor right)
+					if cursorPos < len(input) {
+						cursorPos++
+						fmt.Print("\033[C") // Move cursor forward
+					}
+				case 68: // Left arrow (Move cursor left)
+					if cursorPos > 0 {
+						cursorPos--
+						fmt.Print("\033[D")
 					}
 				}
 			}
 		default:
 			if r != 0 {
-				// Insert character at cursor position
 				if cursorPos < len(input) {
 					input = append(input[:cursorPos], append([]rune{r}, input[cursorPos:]...)...)
 				} else {
 					input = append(input, r)
 				}
 				cursorPos++
-				fmt.Print(string(r))
+				redrawLine(prompt, input, cursorPos)
 			}
 		}
+	}
+}
+
+func redrawLine(prompt string, input []rune, cursorPos int) {
+	fmt.Print("\r\033[K")
+	fmt.Print(prompt + string(input))
+	if cursorPos < len(input) {
+		fmt.Printf("\033[%dD", len(input)-cursorPos)
 	}
 }
 
@@ -187,21 +193,24 @@ func execInput(input string) error {
 		}
 		fmt.Println(dir)
 		return nil
+	case "ls":
+		// Cross-platform support for 'ls'
+		if isWindows() {
+			args = []string{"cmd", "/c", "dir"} // Windows uses 'dir'
+		} else {
+			args = []string{"ls", "-la"} // Unix-based OS
+		}
 	}
 
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		// Run through cmd.exe to handle built-in Windows commands
-		cmd = exec.Command("cmd", "/c", input)
-	} else {
-		// Run normally on Unix-based systems
-		cmd = exec.Command("sh", "-c", input)
-	}
-
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
 	return cmd.Run()
+}
+
+func isWindows() bool {
+	return os.PathSeparator == '\\'
 }
 
 func printFlag(user string) {
