@@ -1,11 +1,11 @@
 # Go-CLI
 
 **Windows**  
-[Download go-cli.exe](https://github.com/tushar27x/go-CLI/releases/download/v1.0.7/go-cli.exe)  
+[Download go-cli.exe](https://github.com/tushar27x/go-CLI/releases/download/v1.0.8/go-cli.exe)  
 
 **Mac**  
-[Download go-cli-mac](https://github.com/tushar27x/go-CLI/releases/download/v1.0.7/go-cli-mac)  
+[Download go-cli-mac](https://github.com/tushar27x/go-CLI/releases/download/v1.0.8/go-cli-mac)  
 
 **Linux**  
-[Download go-cli-linux](https://github.com/tushar27x/go-CLI/releases/download/v1.0.7/go-cli-linux)  
+[Download go-cli-linux](https://github.com/tushar27x/go-CLI/releases/download/v1.0.8/go-cli-linux)  
 
