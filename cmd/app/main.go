@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/mattn/go-tty"
@@ -188,7 +189,15 @@ func execInput(input string) error {
 		return nil
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Run through cmd.exe to handle built-in Windows commands
+		cmd = exec.Command("cmd", "/c", input)
+	} else {
+		// Run normally on Unix-based systems
+		cmd = exec.Command("sh", "-c", input)
+	}
+
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
