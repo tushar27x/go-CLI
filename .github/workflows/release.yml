@@ -27,6 +27,30 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o go-cli.exe ./cmd/app/main.go
           GOOS=darwin GOARCH=amd64 go build -o go-cli-mac ./cmd/app/main.go
 
+      - name: Update README with new version links
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NUM=${VERSION#v}  # Remove 'v' prefix if present
+          REPO_URL=$(echo ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})
+          
+          # Update README.md with new download links
+          # Assuming README.md has sections for download links that we can update
+          sed -i "s|Linux Binary: .*|Linux Binary: ${REPO_URL}/releases/download/${VERSION}/go-cli-linux|g" README.md
+          sed -i "s|Windows Binary: .*|Windows Binary: ${REPO_URL}/releases/download/${VERSION}/go-cli.exe|g" README.md
+          sed -i "s|macOS Binary: .*|macOS Binary: ${REPO_URL}/releases/download/${VERSION}/go-cli-mac|g" README.md
+          sed -i "s|Version: .*|Version: ${VERSION_NUM}|g" README.md
+          
+          # Create the release notes from the updated README
+          cat README.md > release_notes.md
+
+      - name: Commit README changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md
+          git commit -m "Update download links for ${GITHUB_REF#refs/tags/} release" || echo "No changes to commit"
+          git push
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
         with:
@@ -34,5 +58,6 @@ jobs:
             go-cli-linux
             go-cli.exe
             go-cli-mac
+          body_path: release_notes.md
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

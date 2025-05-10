@@ -13,11 +13,25 @@ import (
 	"github.com/mattn/go-tty"
 )
 
-const userHistory = ".gosh_user"
-const cmdHistory = ".gosh_history"
+const (
+	userHistory = ".gosh_user"
+	cmdHistory  = ".gosh_history"
+)
 
-var commandHistory []string
-var historyIndex int
+var (
+	commandHistory []string
+	historyIndex   int
+	homeDir        string
+)
+
+func init() {
+	var err error
+	homeDir, err = os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error getting home directory:", err)
+		os.Exit(1)
+	}
+}
 
 func main() {
 	user := getUser()
@@ -65,7 +79,8 @@ func main() {
 }
 
 func getUser() string {
-	if file, err := os.ReadFile(userHistory); err == nil {
+	userFile := filepath.Join(homeDir, userHistory)
+	if file, err := os.ReadFile(userFile); err == nil {
 		return strings.TrimSpace(string(file))
 	}
 
@@ -74,12 +89,13 @@ func getUser() string {
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 
-	_ = os.WriteFile(userHistory, []byte(name), 0644)
+	_ = os.WriteFile(userFile, []byte(name), 0644)
 	return name
 }
 
 func loadHistory() {
-	if file, err := os.ReadFile(cmdHistory); err == nil {
+	historyFile := filepath.Join(homeDir, cmdHistory)
+	if file, err := os.ReadFile(historyFile); err == nil {
 		commandHistory = strings.Split(strings.TrimSpace(string(file)), "\n")
 	}
 
@@ -90,7 +106,8 @@ func saveHistory() {
 	if len(commandHistory) == 0 {
 		return
 	}
-	_ = os.WriteFile(cmdHistory, []byte(strings.Join(commandHistory, "\n")), 0644)
+	historyFile := filepath.Join(homeDir, cmdHistory)
+	_ = os.WriteFile(historyFile, []byte(strings.Join(commandHistory, "\n")), 0644)
 }
 
 func readInputWithHistory(tty *tty.TTY) (string, error) {
@@ -195,6 +212,11 @@ func execInput(input string) error {
 		return nil
 	case "exit":
 		fmt.Println("Closing shell...")
+		// Clear both in-memory history and history file
+		commandHistory = nil
+		historyIndex = 0
+		historyFile := filepath.Join(homeDir, cmdHistory)
+		_ = os.WriteFile(historyFile, []byte(""), 0644)
 
 		// 🛑 Detect OS and close terminal
 		if isWindows() {
