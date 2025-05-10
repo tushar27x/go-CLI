@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   release:
@@ -27,10 +27,24 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o go-cli.exe ./cmd/app/main.go
           GOOS=darwin GOARCH=amd64 go build -o go-cli-mac ./cmd/app/main.go
 
+      - name: Generate version tag
+        id: generate_tag
+        run: |
+          # Get the latest commit hash
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          # Get the current date in YYYY-MM-DD format
+          CURRENT_DATE=$(date +'%Y.%m.%d')
+          # Create a version tag with date and commit hash
+          VERSION="v${CURRENT_DATE}-${COMMIT_HASH}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VERSION_NUM=${CURRENT_DATE}-${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "Generated version: ${VERSION}"
+          
       - name: Update README with new version links
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION_NUM=${VERSION#v}  # Remove 'v' prefix if present
+          # Use the generated version tag
+          VERSION=${{ env.VERSION }}
+          VERSION_NUM=${{ env.VERSION_NUM }}
           REPO_URL=$(echo ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})
           
           # Update README.md with new download links
@@ -51,13 +65,17 @@ jobs:
           git commit -m "Update download links for ${GITHUB_REF#refs/tags/} release" || echo "No changes to commit"
           git push
 
-      - name: Upload Release Assets
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
           files: |
             go-cli-linux
             go-cli.exe
             go-cli-mac
           body_path: release_notes.md
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
