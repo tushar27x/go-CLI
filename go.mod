@@ -1,6 +1,6 @@
 module github.com/tushar27x/go-CLI
 
-go 1.23.5
+go 1.18
 
 require github.com/mattn/go-tty v0.0.7
 
